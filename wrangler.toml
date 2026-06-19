@@ -1,0 +1,19 @@
+name = "tree-msgs"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[dev]
+port = 8789
+
+[vars]
+PUBLIC_BASE = "https://tree-msgs.jeffaporta.workers.dev"
+
+[secrets]
+required = [
+  "TREE_MSGS_DATABASE_URL",
+  "LAB_JWT_SECRET",
+]
+
+[[services]]
+binding = "SYSTEM_LOGIN_SVC"
+service = "system-login"

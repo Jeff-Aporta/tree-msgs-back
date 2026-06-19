@@ -1,0 +1,67 @@
+name: Deploy tree-msgs API (Cloudflare Worker)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verificar secretos
+        run: |
+          missing=""
+          [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] && missing="$missing CLOUDFLARE_API_TOKEN"
+          [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ] && missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          [ -z "${{ secrets.TREE_MSGS_DATABASE_URL }}" ] && [ -z "${{ secrets.NEON_DATABASE_URL }}" ] && missing="$missing TREE_MSGS_DATABASE_URL|NEON_DATABASE_URL"
+          [ -z "${{ secrets.LAB_JWT_SECRET }}" ] && missing="$missing LAB_JWT_SECRET"
+          if [ -n "$missing" ]; then
+            echo "::error::Faltan secretos en tree-msgs-back:$missing"
+            exit 1
+          fi
+
+      - name: Verificar token Cloudflare (Workers Edit)
+        run: |
+          code=$(curl -sS -o /tmp/cf-verify.json -w "%{http_code}" \
+            "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+          if [ "$code" != "200" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN inválido (HTTP $code)."
+            cat /tmp/cf-verify.json || true
+            exit 1
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - run: npm install
+
+      - name: Secretos Worker
+        run: |
+          DB_URL="${{ secrets.TREE_MSGS_DATABASE_URL }}"
+          if [ -z "$DB_URL" ]; then DB_URL="${{ secrets.NEON_DATABASE_URL }}"; fi
+          echo "$DB_URL" | npx wrangler secret put TREE_MSGS_DATABASE_URL
+          echo "$LAB_JWT_SECRET" | npx wrangler secret put LAB_JWT_SECRET
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          LAB_JWT_SECRET: ${{ secrets.LAB_JWT_SECRET }}
+
+      - name: Desplegar Worker
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Smoke test (health)
+        run: |
+          base="https://tree-msgs.jeffaporta.workers.dev"
+          curl -sf "$base/" | grep -q '"service":"tree-msgs"'
+          curl -sf "$base/api/doc" | grep -q openapi
+          curl -sf "$base/api/ui" | grep -q -i swagger
