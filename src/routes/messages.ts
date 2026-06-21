@@ -1,5 +1,7 @@
 import type { Context } from "hono";
 import type { Env } from "../types.js";
+import { parseListFilterFromHono } from "@jeff-aporta/apiservers/http/hono-list-filter";
+import { issListPageMeta, pickEqFilter, resolveIssListLimit, resolveIssListOffset, IssListFilterError } from "@jeff-aporta/apiservers/filter/iss-list-filter-core";
 import {
   createMessage,
   getMessage,
@@ -32,9 +34,24 @@ export async function listTreeMessages(c: Ctx) {
   if (app instanceof Response) return app;
   const context = requireContext(c);
   if (context instanceof Response) return context;
-  const includeInactive = c.req.query("includeInactive") === "1";
-  const messages = await listMessages(c.env, app, context, { includeInactive });
-  return c.json({ ok: true, messages });
+  const listFilter = parseListFilterFromHono(c, { defaultLimit: 500, maxLimit: 2000 });
+  if (listFilter instanceof Response) return listFilter;
+  try {
+    const eq = pickEqFilter(listFilter.eq, new Set(["includeInactive"]));
+    const includeInactive = eq.includeInactive === true || eq.includeInactive === "true" || eq.includeInactive === 1 || c.req.query("includeInactive") === "1";
+    let messages = await listMessages(c.env, app, context, { includeInactive });
+    if (listFilter.search?.trim()) {
+      const q = listFilter.search.trim().toLowerCase();
+      messages = messages.filter((m) => m.body.toLowerCase().includes(q) || m.treePath.toLowerCase().includes(q));
+    }
+    const limit = resolveIssListLimit(listFilter, { defaultLimit: 500, maxLimit: 2000 });
+    const offset = resolveIssListOffset(listFilter);
+    const slice = messages.slice(offset, offset + limit);
+    return c.json({ ok: true, messages: slice, ...issListPageMeta(messages.length, limit, offset) });
+  } catch (e) {
+    const msg = e instanceof IssListFilterError ? e.message : "f inválido";
+    return c.json({ ok: false, error: msg }, 400);
+  }
 }
 
 export async function getTreeMessage(c: Ctx) {
