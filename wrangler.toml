@@ -2,9 +2,9 @@ name = "tree-msgs"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
+# Puertos dev locales (canónico: src/protocolos/dev-ports.json — npm run sync:ports): main-orchestrator 8790 | system-login 8791 | flsjeff 8792 | jagudeloe 8793 | iatools 8794 | conversations 8795 | jagudeloe-tks 8796 | cf-ai 8797 | scrum 8798 | tree-msgs 8799 | iss-patyia-bridge (Azure Functions / dev-local-server) 8800 | front estático local (hub apps / Live Server) 8801 | PatyIA ISS-AyudasCPIA 8802 | ClientesIS ISS-ClientesIS-ContaPymeU 8803
 [dev]
-port = 8789
-
+port = 8799
 [vars]
 PUBLIC_BASE = "https://tree-msgs.jeffaporta.workers.dev"
 

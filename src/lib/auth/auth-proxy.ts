@@ -4,7 +4,7 @@ import { withCors } from "../http/cors.js";
 export type AuthProxyEnv = { SYSTEM_LOGIN_URL?: string };
 
 const SYSTEM_LOGIN_URL_PROD = "https://system-login.jeffaporta.workers.dev";
-const SYSTEM_LOGIN_URL_LOCAL = "http://localhost:8781";
+const SYSTEM_LOGIN_URL_LOCAL = "http://localhost:8791";
 
 export function resolveSystemLoginBase(env: AuthProxyEnv | undefined, requestUrl: string): string {
   const fromEnv = env?.SYSTEM_LOGIN_URL?.replace(/\/$/, "");
